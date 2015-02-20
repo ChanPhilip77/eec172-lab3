@@ -186,7 +186,7 @@ int main(void)
 		ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1);
 		ROM_TimerConfigure(TIMER1_BASE, TIMER_CFG_PERIODIC);
 		ROM_TimerLoadSet(TIMER1_BASE, TIMER_A, SysCtlClockGet()/SPEED);
-		ROM_TimerEnable(TIMER1_BASE,TIMER_A);
+		
 
 		// SSI0 Stuff
 		GPIOPinConfigure(GPIO_PA2_SSI0CLK);
@@ -231,7 +231,7 @@ int main(void)
     
 		
 		oled_setup();
-
+		ROM_TimerEnable(TIMER1_BASE,TIMER_A);
 		
 		
 // =================================================================================================
