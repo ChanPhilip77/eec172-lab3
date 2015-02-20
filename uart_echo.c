@@ -87,8 +87,10 @@ __error__(char *pcFilename, uint32_t ui32Line)
 #define YELLOW          0xFFE0  
 #define WHITE           0xFFFF
 
-const int SPEED = 20;	// refresh rate = 1 sec / speed
+const int SPEED = 30;	// refresh rate = 1 sec / speed
 const int BG_COLOR = BLACK;
+const int ORIG_X_SPEED = 2;
+const int ORIG_Y_SPEED = 1;
 
 // IR detection
 static int interrupted = 0;
@@ -138,8 +140,8 @@ static int ball_pyc = 64;
 static int paddle1_pyc = 54;
 static int paddle2_pyc = 54;
 
-static int x_speed = 2;
-static int y_speed = 1;
+static int x_speed = ORIG_X_SPEED;
+static int y_speed = ORIG_Y_SPEED;
 
 
 
@@ -270,9 +272,9 @@ int main(void)
 				{
 					move_paddle = 1;
 					if (print_code == CTRL_VUP)
-						pad_dir = 10;
-					else
 						pad_dir = -10;
+					else
+						pad_dir = 10;
 					print_code = 0;
 				}
 				if (update_paddles)
@@ -444,17 +446,33 @@ void Timer1A_Int(void)
 	ball_pxc = ball_xc;
 	ball_pyc = ball_yc;
 	
+	// Control Ball
 	ball_xc = ball_xc + x_speed;
 	ball_yc = ball_yc + y_speed;
-	if (ball_xc < 3 || ball_xc > 125)
+	
+	if (ball_xc < 2 || ball_xc > 125)
 		x_speed = -1 * x_speed;
 	if (ball_yc < 3 || ball_yc > 124)
 		y_speed = -1 * y_speed;
 	
+	if (ball_xc < 9)
+	{
+		if (ball_yc > paddle1_yc && ball_yc < (paddle1_yc+20))
+			x_speed = ORIG_X_SPEED;
+	}
+	if (ball_xc > 117)
+	{
+		if (ball_yc > paddle2_yc && ball_yc < (paddle2_yc+20))
+			x_speed = -1 * ORIG_X_SPEED;
+	}
+	
+	// Control paddle 1
 	if (move_paddle == 1)
 	{
 		paddle1_pyc = paddle1_yc;
 		paddle1_yc += pad_dir;
+		if (paddle1_yc > 107 || paddle1_yc < 0)
+			paddle1_yc = paddle1_pyc;
 		move_paddle = 0;
 		update_paddles = 1;
 	}
@@ -711,7 +729,7 @@ void decode(int times[], int size)
 						sequence = 0;
 				}
 			}
-			ROM_SysCtlDelay(SysCtlClockGet()/15);
+			ROM_SysCtlDelay(SysCtlClockGet()/3/1000);
 			if (print_code != CTRL_ERROR && print_code != 0)
 				valid = 1;
 		}
