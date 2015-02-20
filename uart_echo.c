@@ -70,7 +70,25 @@ USAGE: 	Push buttons on IR remote. A character will display
 #define CTRL_RIGHT 20
 #define CTRL_ERROR -1
 
-const int SPEED = 1;	// refresh rate = 1 sec / speed
+#ifdef DEBUG
+void
+__error__(char *pcFilename, uint32_t ui32Line)
+{
+}
+#endif
+
+#define NUM_SSI_DATA            3
+#define	BLACK           0x0000
+#define	BLUE            0x001F
+#define	RED             0xF800
+#define	GREEN           0x07E0
+#define CYAN            0x07FF
+#define MAGENTA         0xF81F
+#define YELLOW          0xFFE0  
+#define WHITE           0xFFFF
+
+const int SPEED = 20;	// refresh rate = 1 sec / speed
+const int BG_COLOR = BLACK;
 
 // IR detection
 static int interrupted = 0;
@@ -109,31 +127,16 @@ const int paddle2_xc = 121;	//127 - 6
 static int paddle2_yc = 54;
 
 static int ball_pxc = 64;	// previous ball x coordinate
-static int ball_pyx = 64;
+static int ball_pyc = 64;
 static int paddle1_pyc = 54;
 static int paddle2_pyc = 54;
 
-static int x_speed = 1;
+static int x_speed = 2;
 static int y_speed = 1;
 
 
 
-#ifdef DEBUG
-void
-__error__(char *pcFilename, uint32_t ui32Line)
-{
-}
-#endif
 
-#define NUM_SSI_DATA            3
-#define	BLACK           0x0000
-#define	BLUE            0x001F
-#define	RED             0xF800
-#define	GREEN           0x07E0
-#define CYAN            0x07FF
-#define MAGENTA         0xF81F
-#define YELLOW          0xFFE0  
-#define WHITE           0xFFFF
 
 void ConfigureUART(void);
 void ConfigureUART1(void);
@@ -181,8 +184,9 @@ int main(void)
 		TimerEnable(TIMER0_BASE, TIMER_A);
 		// character display timer
 		ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER1);
-		ROM_TimerConfigure(TIMER1_BASE, TIMER_CFG_ONE_SHOT);
+		ROM_TimerConfigure(TIMER1_BASE, TIMER_CFG_PERIODIC);
 		ROM_TimerLoadSet(TIMER1_BASE, TIMER_A, SysCtlClockGet()/SPEED);
+		ROM_TimerEnable(TIMER1_BASE,TIMER_A);
 
 		// SSI0 Stuff
 		GPIOPinConfigure(GPIO_PA2_SSI0CLK);
@@ -248,7 +252,8 @@ int main(void)
 				count = 0;
 				start_flag = 0;
 			}
-			
+			fillCircle(ball_pxc,ball_pyc,2,BG_COLOR);
+			fillCircle(ball_xc,ball_yc,2,WHITE);
 
 			
 
@@ -268,16 +273,16 @@ void oled_setup()
 {
 	char msg[12] = "Starting...\n";
 	begin();
-	fillScreen(BLACK);
-	setTextColor(WHITE,BLACK);
+	fillScreen(BG_COLOR);
+	setTextColor(WHITE,BG_COLOR);
 	setTextSize(1);
-	setCursor(16, 64);
+	setCursor(24, 64);
 	for (int i = 0;i < 12; i++)
 	{
 		write(msg[i]);
 	}
 	ROM_SysCtlDelay(ROM_SysCtlClockGet()/3);
-	fillScreen(BLACK);
+	fillScreen(BG_COLOR);
 	fillCircle(ball_xc,ball_yc,2,WHITE);
 	fillRect(paddle1_xc,paddle1_yc,6,20,WHITE);
 	fillRect(paddle2_xc,paddle2_yc,6,20,WHITE);
@@ -404,10 +409,18 @@ void SendStr( char * Tx_buf) {
 void Timer1A_Int(void)
 {
 	TimerIntDisable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
-	TimerDisable(TIMER1_BASE, TIMER_A);
 	TimerIntClear(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
+	ball_pxc = ball_xc;
+	ball_pyc = ball_yc;
 	
-	display_now = 1;
+	ball_xc = ball_xc + x_speed;
+	ball_yc = ball_yc + y_speed;
+	if (ball_xc < 3 || ball_xc > 125)
+		x_speed = -1 * x_speed;
+	if (ball_yc < 3 || ball_yc > 124)
+		y_speed = -1 * y_speed;
+	
+	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 }
 
 
