@@ -92,14 +92,16 @@ const int BG_COLOR = BLACK;
 
 // IR detection
 static int interrupted = 0;
-static int edge1 = 0;
-static int edge2 = 0;
+static int edge1 = 1;
+static int edge2 = 2;
 static int total_time = 0;
 static int count = 0;
 static int times[52];
 static int done_flag = 0;
 static int last_time = 0;
 static int start_flag = 0;
+
+static int refresh = 0;
 
 // Char detection and selection
 
@@ -119,6 +121,7 @@ static bool received = false;
 
 static int move_paddle = 0;
 static int pad_dir = 0;
+static int update_paddles = 0;
 
 
 // coordinates
@@ -256,18 +259,34 @@ int main(void)
 				count = 0;
 				start_flag = 0;
 			}
-			fillCircle(ball_pxc,ball_pyc,2,BG_COLOR);
-			fillCircle(ball_xc,ball_yc,2,WHITE);
-
-			if (print_code == CTRL_VUP || print_code == CTRL_VDOWN)
+			
+			
+			if (refresh)
 			{
-				move_paddle = 1;
-				if (print_code == CTRL_VUP)
-					pad_dir = 10;
-				else
-					pad_dir = -10;
-				print_code = 0;
+				fillCircle(ball_pxc,ball_pyc,2,BG_COLOR);
+				fillCircle(ball_xc,ball_yc,2,WHITE);
+				
+				if (print_code == CTRL_VUP || print_code == CTRL_VDOWN)
+				{
+					move_paddle = 1;
+					if (print_code == CTRL_VUP)
+						pad_dir = 10;
+					else
+						pad_dir = -10;
+					print_code = 0;
+				}
+				if (update_paddles)
+				{
+					fillRect(paddle1_xc,paddle1_pyc,6,20,BG_COLOR);
+					fillRect(paddle1_xc,paddle1_yc,6,20,WHITE);
+					fillRect(paddle2_xc,paddle2_pyc,6,20,BG_COLOR);
+					fillRect(paddle2_xc,paddle2_yc,6,20,WHITE);
+					update_paddles = 0;
+				}
+				refresh = 0;
 			}
+			
+			
 
 			GPIOIntClear(GPIO_PORTB_BASE, GPIO_INT_PIN_2);
 			TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
@@ -330,7 +349,7 @@ void ConfigureUART(void)
     //
     // Initialize the UART for console I/O.
     //
-    UARTStdioConfig(0, 115200, 16000000);
+    UARTStdioConfig(0, 9600, 16000000);
 }
 
 void ConfigureUART1(void) {
@@ -434,11 +453,13 @@ void Timer1A_Int(void)
 	
 	if (move_paddle == 1)
 	{
+		paddle1_pyc = paddle1_yc;
 		paddle1_yc += pad_dir;
 		move_paddle = 0;
+		update_paddles = 1;
 	}
 	
-	
+	refresh = 1;
 	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 }
 
@@ -479,22 +500,19 @@ void IR_Handler (void) {
 	if (total_time > 420000 && total_time < 430000)
 	{
 		total_time = 425000;
-		done_flag = 1;
+		//done_flag = 1;
 	}
 	else
 	{
 		if ((last_time + total_time) > 420000 && (last_time + total_time) < 430000)
 		{
 			total_time = 425000;
-			done_flag = 1;
+			//done_flag = 1;
 		}
 	}
-// if not continuously held
-	if (start_flag == 1)
-	{
-		count = count + 1;
-	}
-	
+if (start_flag)
+		count++;
+
 	last_time = total_time;
 }	
 
