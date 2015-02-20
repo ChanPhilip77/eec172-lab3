@@ -176,10 +176,6 @@ int main(void)
 	
 		*Tx_ptr = displayed_text;
 	
-//		ROM_UARTFIFOLevelSet(UART1_BASE, UART_FIFO_TX4_8, UART_FIFO_RX4_8);
-    //
-    // Set the clocking to run directly from the crystal.
-    //
     ROM_SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN);
 
 
@@ -441,7 +437,7 @@ void SendStr( char * Tx_buf) {
 
 void Timer1A_Int(void)
 {
-	TimerIntDisable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
+	//TimerIntDisable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 	TimerIntClear(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 	ball_pxc = ball_xc;
 	ball_pyc = ball_yc;
@@ -450,8 +446,11 @@ void Timer1A_Int(void)
 	ball_xc = ball_xc + x_speed;
 	ball_yc = ball_yc + y_speed;
 	
-	if (ball_xc < 2 || ball_xc > 125)
-		x_speed = -1 * x_speed;
+	if (ball_xc < 2) // left screen edge
+		x_speed = ORIG_X_SPEED;
+	if (ball_xc > 125)	// right screen edge
+		x_speed = -1 * ORIG_X_SPEED;
+	
 	if (ball_yc < 3 || ball_yc > 124)
 		y_speed = -1 * y_speed;
 	
@@ -478,7 +477,7 @@ void Timer1A_Int(void)
 	}
 	
 	refresh = 1;
-	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
+	//TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 }
 
 
@@ -729,7 +728,7 @@ void decode(int times[], int size)
 						sequence = 0;
 				}
 			}
-			ROM_SysCtlDelay(SysCtlClockGet()/3/1000);
+			ROM_SysCtlDelay(SysCtlClockGet()/3/10000);
 			if (print_code != CTRL_ERROR && print_code != 0)
 				valid = 1;
 		}
