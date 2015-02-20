@@ -117,6 +117,10 @@ static int receive_index = 0;
 static char receive_msg[32] = "";
 static bool received = false;
 
+static int move_paddle = 0;
+static int pad_dir = 0;
+
+
 // coordinates
 
 static int ball_xc = 64;	// ball x coordinate
@@ -255,7 +259,15 @@ int main(void)
 			fillCircle(ball_pxc,ball_pyc,2,BG_COLOR);
 			fillCircle(ball_xc,ball_yc,2,WHITE);
 
-			
+			if (print_code == CTRL_VUP || print_code == CTRL_VDOWN)
+			{
+				move_paddle = 1;
+				if (print_code == CTRL_VUP)
+					pad_dir = 10;
+				else
+					pad_dir = -10;
+				print_code = 0;
+			}
 
 			GPIOIntClear(GPIO_PORTB_BASE, GPIO_INT_PIN_2);
 			TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
@@ -419,6 +431,13 @@ void Timer1A_Int(void)
 		x_speed = -1 * x_speed;
 	if (ball_yc < 3 || ball_yc > 124)
 		y_speed = -1 * y_speed;
+	
+	if (move_paddle == 1)
+	{
+		paddle1_yc += pad_dir;
+		move_paddle = 0;
+	}
+	
 	
 	TimerIntEnable(TIMER1_BASE, TIMER_TIMA_TIMEOUT);
 }
