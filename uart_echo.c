@@ -114,11 +114,11 @@ static int print_code = 0;
 static int valid = 0;
 
 static int send_key = 0;
-volatile char * Tx_ptr;
+volatile int * Tx_ptr;
 volatile bool Tx_done;
 
 static int receive_index = 0;
-static char receive_msg[32] = "";
+static int receive_code[3] = {0,0,0};
 static bool received = false;
 
 static int move_paddle = 0;
@@ -151,7 +151,7 @@ void ConfigureUART(void);
 void ConfigureUART1(void);
 void UART1IntHandler(void);
 void IR_Handler (void);
-void SendStr( char * Tx_buf);
+void SendStr( int * Tx_buf);
 void decode(int times[], int size);
 void oled_setup();
 
@@ -168,19 +168,20 @@ int main(void)
 		ConfigureUART1();
     ROM_FPULazyStackingEnable();
 		int ir_input;
-		char displayed_text = NULL;
+		int send_code[3] = {0,0,0};
 		uint32_t pui32DataTx[NUM_SSI_DATA];
 		uint32_t pui32DataRx[NUM_SSI_DATA];
     uint32_t ui32Index;
 		int char_num = 0;
 	
-		*Tx_ptr = displayed_text;
+		*Tx_ptr = NULL;
 	
     ROM_SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ | SYSCTL_OSC_MAIN);
 
 
 		ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
 		ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_SSI0);
+		ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
 	
 		// Button detection timer
 		ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
@@ -201,6 +202,7 @@ int main(void)
 		ROM_GPIOPinTypeSSI(GPIO_PORTA_BASE, GPIO_PIN_5 | GPIO_PIN_4 | GPIO_PIN_3 | GPIO_PIN_2);
 		GPIOPinTypeGPIOOutput(GPIO_PORTA_BASE, GPIO_PIN_6);
 		GPIOPinTypeGPIOOutput(GPIO_PORTA_BASE, GPIO_PIN_7);
+		GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
 		ROM_SSIConfigSetExpClk(SSI0_BASE, SysCtlClockGet(), SSI_FRF_MOTO_MODE_0,
                        SSI_MODE_MASTER, 1000000, 8);
 		
@@ -279,11 +281,15 @@ int main(void)
 					fillRect(paddle1_xc,paddle1_yc,6,20,WHITE);
 					fillRect(paddle2_xc,paddle2_pyc,6,20,BG_COLOR);
 					fillRect(paddle2_xc,paddle2_yc,6,20,WHITE);
+					send_code[0] = 4;
+					send_code[1] = paddle1_yc;
+					send_code[2] = 0;
+					SendStr(send_code);
 					update_paddles = 0;
 				}
 				refresh = 0;
 			}
-			
+
 			
 
 			GPIOIntClear(GPIO_PORTB_BASE, GPIO_INT_PIN_2);
@@ -377,10 +383,11 @@ void ConfigureUART1(void) {
 
 
 
+
 void UART1IntHandler(void) {
     uint32_t ui32Status;
 		
-
+		GPIOPinWrite(GPIO_PORTF_BASE,GPIO_PIN_2,GPIO_PIN_2);
 
     ui32Status = ROM_UARTIntStatus(UART1_BASE, true);
 	
@@ -405,18 +412,20 @@ void UART1IntHandler(void) {
 	// receive
     while(ROM_UARTCharsAvail(UART1_BASE))
     {
-        receive_msg[receive_index] = ROM_UARTCharGetNonBlocking(UART1_BASE);
-				UARTprintf("receive %c\n",receive_msg[receive_index]);
+        receive_code[receive_index] = ROM_UARTCharGetNonBlocking(UART1_BASE);
+				UARTprintf("receive %c\n",receive_code[receive_index]);
 				receive_index++;
 				
     }
 		received = true;
+		receive_index = 0;
+		GPIOPinWrite(GPIO_PORTF_BASE,GPIO_PIN_2,0);
 
 }
 
 
 
-void SendStr( char * Tx_buf) {
+void SendStr( int * Tx_buf) {
 
 		Tx_done = false;		// global flag used by ISR
 		Tx_ptr = Tx_buf;		// global pointer used by ISR
@@ -433,7 +442,6 @@ void SendStr( char * Tx_buf) {
 		
     ROM_UARTIntEnable(UART1_BASE, UART_INT_RX | UART_INT_RT);
 }
-
 
 void Timer1A_Int(void)
 {
