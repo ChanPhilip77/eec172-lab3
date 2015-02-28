@@ -1,4 +1,5 @@
 // Philip Chan and Thien Nguyen
+// Lab 3
 //      PA5 - SSI0Tx to SI
 //      PA4 - SSI0Rx to 
 //      PA3 - SSI0Fss to OC
@@ -9,14 +10,12 @@
 
 
 /*
-USAGE: 	Push buttons on IR remote. A character will display 
-				on the console depending on how many times you pushed
-				the button. If you push more than there are letters,
-				the number will display, ie. if you push button 2 4+
-				times, it will display 2 on the console.
-				
-				When you finish typing a message, press the Mute or
-				Enter button to send it to the oled.
+Wireless Pong
+USAGE: 	Push buttons on IR remote. Either the left paddle or right paddle will move depending on which player you are.
+				The ball will be controlled by this Tiva, and the coordinates will be transmitted to the slave Tiva. The paddle1
+				will also be transmitted to the slave Tiva. The slave Tiva will transmit paddle2 coordinates to this Tiva and
+				will be updated here. The game is refreshed using the GPIO Timer at a rate of 5 times per second, updating ball
+				and paddle coordinates.
 
 */
 
@@ -48,6 +47,7 @@ USAGE: 	Push buttons on IR remote. A character will display
 
 #include "Adafruit_SSD1351.h"
 
+// Codes used for decoding the button pushed
 #define CTRL_ONE 1
 #define CTRL_TWO 2
 #define CTRL_THREE 3
@@ -87,10 +87,10 @@ __error__(char *pcFilename, uint32_t ui32Line)
 #define YELLOW          0xFFE0  
 #define WHITE           0xFFFF
 
-const int SPEED = 30;	// refresh rate = 1 sec / speed
+const int SPEED = 5;	// refresh rate = 1 sec / speed
 const int BG_COLOR = BLACK;
-const int ORIG_X_SPEED = 2;
-const int ORIG_Y_SPEED = 1;
+const int ORIG_X_SPEED = 2;	// initial dx
+const int ORIG_Y_SPEED = 1;	// initial dy
 
 // IR detection
 static int interrupted = 0;
@@ -143,7 +143,7 @@ static int paddle2_pyc = 54;
 static int x_speed = ORIG_X_SPEED;
 static int y_speed = ORIG_Y_SPEED;
 
-
+static int gameover = 0;
 
 
 
@@ -154,6 +154,7 @@ void IR_Handler (void);
 void SendStr( int * Tx_buf);
 void decode(int times[], int size);
 void oled_setup();
+void restart(int winner);
 
 void Timer1A_Int(void);
 
@@ -259,13 +260,24 @@ int main(void)
 				count = 0;
 				start_flag = 0;
 			}
-			
+			if (gameover != 0)
+			{
+				send_code[0] = 2;
+				send_code[1] = gameover;
+				SendStr(send_code);
+				restart(gameover);
+				gameover = 0;
+			}
 			
 			if (refresh)
 			{
 				fillCircle(ball_pxc,ball_pyc,2,BG_COLOR);
 				fillCircle(ball_xc,ball_yc,2,WHITE);
-				
+				send_code[0] = 3;
+				send_code[1] = ball_xc;
+				send_code[2] = ball_yc;
+				SendStr(send_code);
+				ROM_SysCtlDelay(SysCtlClockGet()/3/1000);
 				if (print_code == CTRL_VUP || print_code == CTRL_VDOWN)
 				{
 					move_paddle = 1;
@@ -286,6 +298,13 @@ int main(void)
 					send_code[2] = 0;
 					SendStr(send_code);
 					update_paddles = 0;
+				}
+				if (receive_code[0] == 5)
+				{
+					paddle2_pyc = paddle2_yc;
+					paddle2_yc = receive_code[1];
+					update_paddles = 1;
+					receive_code[0] = 0;
 				}
 				refresh = 0;
 			}
@@ -323,6 +342,32 @@ void oled_setup()
 	fillRect(paddle2_xc,paddle2_yc,6,20,WHITE);
 
 
+}
+
+void restart(int winner)
+{
+	char msg[11]= "Winner: P1\n";
+	ball_xc = 64;
+	ball_yc = 64;
+	ball_pxc = 64;
+	ball_pyc = 64;
+	paddle1_yc = 54;
+	paddle1_pyc = 54;
+	fillScreen(BG_COLOR);
+	setCursor(24, 64);
+	if (winner == 1)
+		msg[9] = '2';
+	else
+		msg[9] = '1';
+	for (int i = 0;i < 11; i++)
+	{
+		write(msg[i]);
+	}
+	ROM_SysCtlDelay(ROM_SysCtlClockGet()/3);
+	fillScreen(BG_COLOR);
+	fillCircle(ball_xc,ball_yc,2,WHITE);
+	fillRect(paddle1_xc,paddle1_yc,6,20,WHITE);
+	fillRect(paddle2_xc,paddle2_yc,6,20,WHITE);
 }
 
 
@@ -455,9 +500,10 @@ void Timer1A_Int(void)
 	ball_yc = ball_yc + y_speed;
 	
 	if (ball_xc < 2) // left screen edge
-		x_speed = ORIG_X_SPEED;
+		gameover = 1;
+	
 	if (ball_xc > 125)	// right screen edge
-		x_speed = -1 * ORIG_X_SPEED;
+		gameover = 2;
 	
 	if (ball_yc < 3 || ball_yc > 124)
 		y_speed = -1 * y_speed;
